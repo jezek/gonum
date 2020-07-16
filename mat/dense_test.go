@@ -874,6 +874,21 @@ func TestDenseMul(t *testing.T) {
 			[][]float64{{22, 28}, {49, 64}},
 		},
 		{
+			[][]float64{{1, 2}, {3, 4}, {5, 6}},
+			[][]float64{{1, 2, 3}, {4, 5, 6}},
+			[][]float64{{9, 12, 15}, {19, 26, 33}, {29, 40, 51}},
+		},
+		{
+			[][]float64{{1, 2, 3}},
+			[][]float64{{1, 2}, {3, 4}, {5, 6}},
+			[][]float64{{22, 28}},
+		},
+		{
+			[][]float64{{1, 2}, {3, 4}, {5, 6}},
+			[][]float64{{1}, {2}},
+			[][]float64{{5}, {11}, {17}},
+		},
+		{
 			[][]float64{{0, 1, 1}, {0, 1, 1}, {0, 1, 1}},
 			[][]float64{{0, 1, 1}, {0, 1, 1}, {0, 1, 1}},
 			[][]float64{{0, 2, 2}, {0, 2, 2}, {0, 2, 2}},
@@ -895,6 +910,27 @@ func TestDenseMul(t *testing.T) {
 		if !Equal(&temp, r) {
 			t.Errorf("unexpected result from Mul for test %d %v Mul %v: got: %v want: %v",
 				i, test.a, test.b, unflatten(temp.mat.Rows, temp.mat.Cols, temp.mat.Data), test.r)
+		}
+
+		// Test if recievers data capacity is as it's length.
+		if cap(temp.mat.Data) != len(temp.mat.Data) {
+			t.Errorf("unexpected capacity of result data from Mul for test %d: got: %v want: %v",
+				i, cap(temp.mat.Data), len(temp.mat.Data))
+		}
+
+		// Test if recievers larger capacity (lc) is retained after Mul.
+		temp.mat.Data = append(temp.mat.Data, 0)
+		temp.mat.Data = temp.mat.Data[:len(temp.mat.Data)-1]
+		wantLargerCap := cap(temp.mat.Data)
+		zero(temp.mat.Data)
+		temp.Mul(a, b)
+		if !Equal(&temp, r) {
+			t.Errorf("unexpected result from Mul for test %d %v Mul %v (lc): got: %v want: %v",
+				i, test.a, test.b, unflatten(temp.mat.Rows, temp.mat.Cols, temp.mat.Data), test.r)
+		}
+		if cap(temp.mat.Data) != wantLargerCap {
+			t.Errorf("unexpected capacity of result data from Mul for test %d (lc): got: %v want: %v",
+				i, cap(temp.mat.Data), wantLargerCap)
 		}
 
 		// These probably warrant a better check and failure. They should never happen in the wild though.
