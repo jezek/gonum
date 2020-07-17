@@ -2245,3 +2245,95 @@ func denseSumBench(b *testing.B, size int) {
 		denseSumForBench = Sum(a)
 	}
 }
+
+func BenchmarkDenseMulRect(b *testing.B) {
+
+	randDenseRect := func(r, c int, rho float64, src rand.Source) (*Dense, error) {
+		if r*c == 0 {
+			return nil, ErrZeroLength
+		}
+		d := &Dense{
+			mat: blas64.General{
+				Rows: r, Cols: c, Stride: c,
+				Data: make([]float64, r*c),
+			},
+			capRows: r, capCols: c,
+		}
+		rnd := rand.New(src)
+		for i := 0; i < r; i++ {
+			for j := 0; j < c; j++ {
+				if rnd.Float64() < rho {
+					d.Set(i, j, rnd.NormFloat64())
+				}
+			}
+		}
+		return d, nil
+	}
+
+	denseMulBench := func(b *testing.B, r, m, c int, rho float64) {
+		src := rand.NewSource(1)
+		b.StopTimer()
+		a, _ := randDenseRect(r, m, rho, src)
+		d, _ := randDenseRect(m, c, rho, src)
+		b.StartTimer()
+		for i := 0; i < b.N; i++ {
+			var n Dense
+			n.Mul(a, d)
+			wd = &n
+		}
+	}
+	//densePreMulBench := func(b *testing.B, size int, rho float64) {
+	//	src := rand.NewSource(1)
+	//	b.StopTimer()
+	//	a, _ := randDense(size, rho, src)
+	//	d, _ := randDense(size, rho, src)
+	//	wd = NewDense(size, size, nil)
+	//	b.StartTimer()
+	//	for i := 0; i < b.N; i++ {
+	//		wd.Mul(a, d)
+	//	}
+	//}
+	//denseMulTransBench := func(b *testing.B, size int, rho float64) {
+	//	src := rand.NewSource(1)
+	//	b.StopTimer()
+	//	a, _ := randDense(size, rho, src)
+	//	d, _ := randDense(size, rho, src)
+	//	b.StartTimer()
+	//	for i := 0; i < b.N; i++ {
+	//		var n Dense
+	//		n.Mul(a, d.T())
+	//		wd = &n
+	//	}
+	//}
+	//denseMulTransSymBench := func(b *testing.B, size int, rho float64) {
+	//	src := rand.NewSource(1)
+	//	b.StopTimer()
+	//	a, _ := randDense(size, rho, src)
+	//	b.StartTimer()
+	//	for i := 0; i < b.N; i++ {
+	//		var n Dense
+	//		n.Mul(a, a.T())
+	//		wd = &n
+	//	}
+	//}
+
+	for _, rho := range []float64{1} {
+		b.Run(fmt.Sprintf("Rho:%f", rho), func(b *testing.B) {
+			rc := []int{1, 2, 5, 7, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000}
+			for _, r := range rc {
+				for _, m := range rc {
+					for _, c := range rc {
+						b.Run(fmt.Sprintf("{%d,%d,%d}", r, m, c), func(b *testing.B) {
+							denseMulBench(b, r, m, c, 1)
+						})
+						//if r != c {
+						//	b.Run(fmt.Sprintf("{%d,%d,%d}", c, m, r), func(b *testing.B) {
+						//		denseMulBench(b, c, m, r, 1)
+						//	})
+						//}
+					}
+				}
+			}
+		})
+	}
+}
