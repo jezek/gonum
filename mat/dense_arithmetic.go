@@ -309,34 +309,6 @@ func (m *Dense) Mul(a, b Matrix) {
 			if restore == nil {
 				m.checkOverlap(bU.mat)
 			}
-
-			if (ar-bc)*ac > ar*bc+ar {
-				// For certain dims it's faster to compute A . B = (Bᵀ . Aᵀ)ᵀ.
-				invertTrans := func(t blas.Transpose) blas.Transpose {
-					if t == blas.NoTrans {
-						return blas.Trans
-					}
-					return blas.NoTrans
-				}
-				mmatT := blas64.General{
-					Rows:   m.mat.Cols,
-					Cols:   m.mat.Rows,
-					Stride: m.mat.Rows,
-					Data:   make([]float64, len(m.mat.Data)),
-				}
-
-				// mmatT = (Bᵀ . Aᵀ)
-				blas64.Gemm(invertTrans(bT), invertTrans(aT), 1, bU.mat, aU.mat, 0, mmatT)
-				// m.mat = mmatTᵀ
-				for i := 0; i < m.mat.Rows; i++ {
-					blas64.Copy(
-						blas64.Vector{N: m.mat.Cols, Inc: mmatT.Stride, Data: mmatT.Data[i : i+(m.mat.Cols-1)*mmatT.Stride+1]},
-						blas64.Vector{N: m.mat.Cols, Inc: 1, Data: m.mat.Data[i*m.mat.Cols : (i+1)*m.mat.Cols]},
-					)
-				}
-				return
-			}
-
 			blas64.Gemm(aT, bT, 1, aU.mat, bU.mat, 0, m.mat)
 			return
 

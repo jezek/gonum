@@ -20,7 +20,7 @@ import (
 // where A is an m×k or k×m dense matrix, B is an n×k or k×n dense matrix, C is
 // an m×n matrix, and alpha and beta are scalars. tA and tB specify whether A or
 // B are transposed.
-func (Implementation) Dgemm(tA, tB blas.Transpose, m, n, k int, alpha float64, a []float64, lda int, b []float64, ldb int, beta float64, c []float64, ldc int) {
+func (impl Implementation) Dgemm(tA, tB blas.Transpose, m, n, k int, alpha float64, a []float64, lda int, b []float64, ldb int, beta float64, c []float64, ldc int) {
 	switch tA {
 	default:
 		panic(badTranspose)
@@ -114,6 +114,18 @@ func (Implementation) Dgemm(tA, tB blas.Transpose, m, n, k int, alpha float64, a
 				}
 			}
 		}
+	}
+
+	if beta == 0 && (m-n)*k > m*n+m {
+		// For some cases it's faster to compute A . B = (Bᵀ . Aᵀ)ᵀ.
+		cT := make([]float64, m*n)
+		// cT = (Bᵀ . Aᵀ)
+		dgemmParallel(!bTrans, !aTrans, n, m, k, b, ldb, a, lda, cT, m, alpha)
+		// c = cTᵀ
+		for i := 0; i < m; i++ {
+			impl.Dcopy(n, cT[i:i+(n-1)*m+1], m, c[i*n:(i+1)*n], 1)
+		}
+		return
 	}
 
 	dgemmParallel(aTrans, bTrans, m, n, k, a, lda, b, ldb, c, ldc, alpha)
